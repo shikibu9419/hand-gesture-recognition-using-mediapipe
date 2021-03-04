@@ -94,9 +94,14 @@ def main():
 
     # フィンガージェスチャー履歴 ################################################
     finger_gesture_history = deque(maxlen=history_length)
+    
+    # 指の動き, 線 ################################################
+    finger_tracking_history = deque()
+    finger_line_positions = deque(maxlen=20)
 
     #  ########################################################################
     mode = 0
+    before_mode = 0
 
     while True:
         fps = cvFpsCalc.get()
@@ -157,6 +162,17 @@ def main():
                 finger_gesture_history.append(finger_gesture_id)
                 most_common_fg_id = Counter(
                     finger_gesture_history).most_common()
+                
+                fg_id = most_common_fg_id[0][0]
+#                 if fg_id == 3:
+#                     finger_tracking_history.append(landmark_list[8])  # 人差指座標
+#                 elif fg_id == 0 and len(finger_tracking_history) > 1:
+#                     finger_line_positions.append([finger_tracking_history[0], finger_tracking_history[-1]])
+#                     finger_tracking_history.clear()
+                # なんらかの動きからSTOPになり, hand sign がpointerである時
+                if fg_id == 0 and before_mode != 0 and hand_sign_id == 2:
+                    finger_line_positions.append(landmark_list[8])
+                before_mode = fg_id
 
                 # 描画
                 debug_image = draw_bounding_rect(use_brect, debug_image, brect)
@@ -166,7 +182,8 @@ def main():
                     brect,
                     handedness,
                     keypoint_classifier_labels[hand_sign_id],
-                    point_history_classifier_labels[most_common_fg_id[0][0]],
+                    point_history_classifier_labels[fg_id],
+                    finger_line_positions
                 )
         else:
             point_history.append([0, 0])
@@ -493,7 +510,7 @@ def draw_bounding_rect(use_brect, image, brect):
 
 
 def draw_info_text(image, brect, handedness, hand_sign_text,
-                   finger_gesture_text):
+                   finger_gesture_text, finger_line_positions):
     cv.rectangle(image, (brect[0], brect[1]), (brect[2], brect[1] - 22),
                  (0, 0, 0), -1)
 
@@ -509,6 +526,10 @@ def draw_info_text(image, brect, handedness, hand_sign_text,
         cv.putText(image, "Finger Gesture:" + finger_gesture_text, (10, 60),
                    cv.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2,
                    cv.LINE_AA)
+    
+    if len(finger_line_positions) > 1:
+        for i in range(0, len(finger_line_positions) - 1):
+            cv.line(image, tuple(finger_line_positions[i]), tuple(finger_line_positions[i + 1]), (255, 255, 255), 2)
 
     return image
 
